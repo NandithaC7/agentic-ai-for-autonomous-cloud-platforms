@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+# pyrefly: ignore [missing-import]
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.resource import ResourceManagementClient
