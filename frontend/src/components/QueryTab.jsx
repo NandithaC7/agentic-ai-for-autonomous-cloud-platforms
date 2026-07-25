@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useMsal } from "@azure/msal-react";
+import { loginRequest } from "../authConfig";
 
 function QueryTab() {
+    const { instance, accounts } = useMsal();
     const [query, setQuery] = useState('');
     const [resourceGroup, setResourceGroup] = useState('');
     const [loading, setLoading] = useState(false);
@@ -10,18 +13,41 @@ function QueryTab() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!accounts[0]) {
+            setError("Please log in first.");
+            return;
+        }
+
         setLoading(true);
         setError(null);
         setResult(null);
 
         try {
+            const tokenResponse = await instance.acquireTokenSilent({
+                ...loginRequest,
+                account: accounts[0]
+            });
+
             const response = await axios.post('/api/query', {
                 query,
-                resource_group: resourceGroup || undefined
+                resource_group: resourceGroup || undefined,
+                subscription_id: "REPLACE_WITH_YOUR_SUBSCRIPTION_ID" // Ideally this would be selected by the user
+            }, {
+                headers: {
+                    Authorization: `Bearer ${tokenResponse.accessToken}`
+                }
             });
             setResult(response.data);
         } catch (err) {
-            setError(err.response?.data?.detail || err.message);
+            console.error(err);
+            if (err.name === "InteractionRequiredAuthError") {
+                instance.acquireTokenPopup(loginRequest).then(response => {
+                     // Try again with the token...
+                     setError("Token acquired, please try your query again.");
+                });
+            } else {
+                setError(err.response?.data?.detail || err.message);
+            }
         } finally {
             setLoading(false);
         }
