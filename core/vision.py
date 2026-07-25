@@ -5,12 +5,8 @@ import base64
 import mimetypes
 import re
 
-print("\n--- NEW v3.1 SCRIPT RUNNING (Fixes Applied) ---")
-
 # --- 1. SETUP ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    GEMINI_API_KEY = input("Enter your Gemini API Key: ").strip()
 
 # --- 2. AUTO-DISCOVERY FUNCTION ---
 def find_valid_model(api_key):
@@ -59,17 +55,25 @@ def find_valid_model(api_key):
         print(f"Network error checking models: {e}")
         return None
 
-# Get the working model name dynamically
-CURRENT_MODEL = find_valid_model(GEMINI_API_KEY)
+# Get the working model name dynamically (lazy-loaded)
+CURRENT_MODEL = None
+
+def _get_model():
+    global CURRENT_MODEL
+    if CURRENT_MODEL is None:
+        CURRENT_MODEL = find_valid_model(GEMINI_API_KEY)
+    return CURRENT_MODEL
 
 # --- 3. VISION AGENT ---
 class GeminiVisionAgent:
     def analyze_image(self, image_path: str) -> dict:
-        if not CURRENT_MODEL:
+        model = _get_model()
+        if not model:
             print("Cannot proceed: No valid model found.")
             return {}
 
-        print(f"🔍 [Vision Agent] Analyzing image using '{CURRENT_MODEL}'...")
+        import sys
+        print(f"🔍 [Vision Agent] Analyzing image using '{model}'...", file=sys.stderr)
         
         if not os.path.exists(image_path):
             print(f"Error: File '{image_path}' not found.")
@@ -102,7 +106,7 @@ class GeminiVisionAgent:
             }]
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{CURRENT_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
         
         try:
             response = requests.post(url, json=payload)
@@ -132,7 +136,8 @@ class GeminiVisionAgent:
 # --- 4. BICEP AGENT ---
 class GeminiBicepAgent:
     def generate_bicep(self, summary: dict) -> str:
-        if not CURRENT_MODEL: return ""
+        model = _get_model()
+        if not model: return ""
         print(f"[Bicep Agent] Generating Infrastructure as Code...")
 
         # --- UPDATED PROMPT HERE ---
@@ -148,7 +153,7 @@ class GeminiBicepAgent:
         )
         
         payload = { "contents": [{ "parts": [{"text": prompt}] }] }
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{CURRENT_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
 
         try:
             response = requests.post(url, json=payload)
